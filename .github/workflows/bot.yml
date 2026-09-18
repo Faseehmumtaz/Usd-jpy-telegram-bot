@@ -1,4 +1,4 @@
-name: USD JPY Telegram Bot
+name: Telegram Bot Test
 
 on:
 
@@ -10,36 +10,24 @@ on:
 
 jobs:
 
-  run-bot:
+  test-bot:
 
     runs-on: ubuntu-latest
 
     steps:
 
-      - name: Checkout
-
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-
-        uses: actions/setup-python@v5
-
-        with:
-
-          python-version: "3.11"
-
-      - name: Install packages
-
-        run: pip install requests pandas
-
-      - name: Run bot
+      - name: Send Telegram message
 
         env:
 
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
 
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
 
-          TWELVE_API_KEY: ${{ secrets.TWELVE_API_KEY }}
+        run: |
 
-        run: python bot.py
+          curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+
+            -d chat_id="${CHAT_ID}" \
+
+            --data-urlencode "text=✅ Bot
