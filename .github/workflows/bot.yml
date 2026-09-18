@@ -1,12 +1,9 @@
+
 name: Telegram Bot Test
 
 on:
 
   workflow_dispatch:
-
-  schedule:
-
-    - cron: "*/5 * * * *"
 
 jobs:
 
@@ -30,4 +27,4 @@ jobs:
 
             -d chat_id="${CHAT_ID}" \
 
-            --data-urlencode "text=✅ Bot
+            --data-urlencode "text=✅
