@@ -1,4 +1,4 @@
-name: Telegram Bot Test
+name: USDJPY Telegram Signal
 
 on:
 
@@ -6,23 +6,23 @@ on:
 
   schedule:
 
-    - cron: "*/10 * * * *"
+    - cron: "*/15 * * * *"
 
 jobs:
 
-  test-bot:
+  signal:
 
     runs-on: ubuntu-latest
 
     steps:
 
-      - name: Send Telegram message
+      - name: Get USDJPY signal and send Telegram
 
         env:
 
-          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
 
-          CHAT_ID: ${{ secrets.CHAT_ID }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
         run: |
 
@@ -30,28 +30,142 @@ jobs:
 
           import os
 
+          import json
+
           import urllib.request
 
           import urllib.parse
 
-          token = os.environ["BOT_TOKEN"]
+          # USD/JPY 5-minute data
 
-          chat_id = os.environ["CHAT_ID"]
+          url = "https://query1.finance.yahoo.com/v8/finance/chart/USDJPY=X?interval=5m&range=1d"
 
-          url = f"https://api.telegram.org/bot{token}/sendMessage"
+          req = urllib.request.Request(
 
-          data = urllib.parse.urlencode({
+              url,
+
+              headers={"User-Agent": "Mozilla/5.0"}
+
+          )
+
+          with urllib.request.urlopen(req, timeout=30) as r:
+
+              data = json.loads(r.read().decode())
+
+          result = data["chart"]["result"][0]
+
+          prices = result["indicators"]["quote"][0]["close"]
+
+          prices = [float(x) for x in prices if x is not None]
+
+          if len(prices) < 30:
+
+              raise Exception("Not enough USDJPY data")
+
+          # EMA function
+
+          def ema(values, period):
+
+              k = 2 / (period + 1)
+
+              e = values[0]
+
+              for v in values[1:]:
+
+                  e = v * k + e * (1 - k)
+
+              return e
+
+          # RSI function
+
+          def rsi(values, period=14):
+
+              gains = []
+
+              losses = []
+
+              for i in range(1, len(values)):
+
+                  change = values[i] - values[i-1]
+
+                  gains.append(max(change, 0))
+
+                  losses.append(max(-change, 0))
+
+              avg_gain = sum(gains[-period:]) / period
+
+              avg_loss = sum(losses[-period:]) / period
+
+              if avg_loss == 0:
+
+                  return 100
+
+              rs = avg_gain / avg_loss
+
+              return 100 - (100 / (1 + rs))
+
+          price = prices[-1]
+
+          ema9 = ema(prices[-30:], 9)
+
+          ema21 = ema(prices[-30:], 21)
+
+          rsi14 = rsi(prices)
+
+          if ema9 > ema21 and rsi14 < 70:
+
+              signal = "🟢 BUY"
+
+          elif ema9 < ema21 and rsi14 > 30:
+
+              signal = "🔴 SELL"
+
+          else:
+
+              signal = "⚪ WAIT"
+
+          message = f"""📊 USD/JPY Signal
+
+💰 Price: {price:.3f}
+
+📈 EMA 9: {ema9:.3f}
+
+📉 EMA 21: {ema21:.3f}
+
+📊 RSI 14: {rsi14:.1f}
+
+Signal: {signal}
+
+⏱️ 5-minute analysis"""
+
+          token = os.environ["TELEGRAM_BOT_TOKEN"]
+
+          chat_id = os.environ["TELEGRAM_CHAT_ID"]
+
+          send_url = f"https://api.telegram.org/bot{token}/sendMessage"
+
+          post_data = urllib.parse.urlencode({
 
               "chat_id": chat_id,
 
-              "text": "✅ Telegram Bot successfully run ho gaya!"
+              "text": message
 
           }).encode()
 
-          request = urllib.request.Request(url, data=data, method="POST")
+          request = urllib.request.Request(
 
-          with urllib.request.urlopen(request) as response:
+              send_url,
+
+              data=post_data,
+
+              method="POST"
+
+          )
+
+          with urllib.request.urlopen(request, timeout=30) as response:
 
               print(response.read().decode())
+
+          print(message)
 
           PY
